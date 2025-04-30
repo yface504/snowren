@@ -1,0 +1,100 @@
+  <!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>文本轉換工具</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; max-width: 800px; margin: auto; }
+    textarea { width: 100%; height: 150px; margin-bottom: 1rem; }
+    .settings input { display: none; }
+    .output { white-space: pre-wrap; background: #f9f9f9; padding: 1rem; border: 1px solid #ccc; margin-top: 1rem; }
+    button { padding: 0.5rem 1rem; margin: 0.5rem 0.25rem; }
+  </style>
+</head>
+<body>
+  <h1>角色文本轉換工具 1.0.6 開發者:站前都都</h1>
+  <a href="https://docs.google.com/spreadsheets/d/1ga9f117SjOxHvNQ9Cx9x1bwx-r3GRVa-ipDSOYjVDm8/edit?gid=883689505#gid=883689505" class="edit-link" target="_blank">編輯角色</a>
+  <a href="https://stationfronta18.github.io/copy/" class="edit-link" target="_blank">自動複製語法</a>
+  <h3>原始文本</h3>
+  <textarea id="inputText" placeholder="貼上原始劇本文字"></textarea>
+
+  <button onclick="transformText()">轉換</button>
+  <button onclick="copyOutput()">複製結果</button>
+
+  <h3>轉換後輸出</h3>
+  <div id="output" class="output"></div>
+
+  <script>
+    const settings = {};
+    const API_KEY = 'AIzaSyBF9oMJZ7TRjRpCxeQ8ardtg72fE4tq64E';
+    const SPREADSHEET_ID = '1ga9f117SjOxHvNQ9Cx9x1bwx-r3GRVa-ipDSOYjVDm8';
+    const range = '工作表2!B2:B27';
+
+    function fetchSettings() {
+      axios.get(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?key=${API_KEY}`)
+        .then(response => {
+          const data = response.data.values;
+          data.forEach((value, index) => {
+            const char = String.fromCharCode(65 + index); // A-Z
+            settings[value[0]] = char;
+          });
+        })
+        .catch(error => {
+          console.error('Error fetching settings:', error);
+        });
+    }
+
+    function transformText() {
+      const input = document.getElementById('inputText').value;
+      const lines = input.split(/\r?\n/);
+      const result = [];
+
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        
+        if (trimmed === '') {
+          result.push(''); // 空行直接保留
+        } 
+        // 第1種：murmur處理
+        else if (trimmed.startsWith('murmur：')) {
+          const content = trimmed.replace('murmur：', '').trim();
+          result.push(`murmur "（${content}）"`);
+        } 
+        // 第2種：( )包起來的敘述
+        else if (/^（.*）$/.test(trimmed)) {
+          const content = trimmed.slice(1, -1); // 去掉前後括號
+          result.push(`"${content}"`);
+        } 
+        // 原本的角色說話處理
+        else {
+          let transformed = false;
+          for (const name in settings) {
+            if (trimmed.startsWith(name + '：')) {
+              const content = trimmed.replace(name + '：', '').trim();
+              result.push(`${settings[name]} "${content}"`);
+              transformed = true;
+              break;
+            }
+          }
+          if (!transformed) {
+            result.push(`"${trimmed}"`);
+          }
+        }
+      });
+
+      document.getElementById('output').innerText = result.join('\n');
+    }
+
+    function copyOutput() {
+      const text = document.getElementById('output').innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('已複製結果！');
+      });
+    }
+
+    fetchSettings(); // Initialize settings on load
+  </script>
+</body>
+</html>
+
